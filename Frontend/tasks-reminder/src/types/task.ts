@@ -1,12 +1,8 @@
-// src/types/task.ts
-
-export type { Task, TaskState, TaskAction };
-
-interface Task {
+export interface Task {
   id: string;
   title: string;
   description: string;
-  dueDate: string;
+  dueDate: string | null;
   priority: 'low' | 'medium' | 'high';
   category: string;
   completed: boolean;
@@ -14,14 +10,16 @@ interface Task {
   createdAt: string;
 }
 
-interface TaskState {
+export interface TaskState {
   tasks: Task[];
+  isLoading: boolean;
+  error: string | null;
 }
 
-type TaskAction = 
+export type TaskAction =
+  | { type: 'SET_TASKS'; payload: Task[] }
   | { type: 'ADD_TASK'; payload: Task }
   | { type: 'UPDATE_TASK'; payload: Task }
   | { type: 'DELETE_TASK'; payload: string }
-  | { type: 'TOGGLE_TASK'; payload: string }
-  | { type: 'SET_REMINDER'; payload: { taskId: string; enabled: boolean } }
-  | { type: 'LOAD_TASKS'; payload: Task[] };
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_ERROR'; payload: string | null };

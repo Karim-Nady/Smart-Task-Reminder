@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { CheckCircle, Clock, AlertCircle, Edit2, Trash2, Bell, BellOff } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, Trash2, Bell, BellOff } from 'lucide-react';
 import { useTasks } from '../contexts/TaskContext';
 import { format, formatDistanceToNow, isPast, isToday } from 'date-fns';
 import clsx from 'clsx';
 
 const TaskList = () => {
-  const { state, dispatch } = useTasks();
+  const { state, deleteTask, toggleTaskCompletion, toggleReminder } = useTasks();
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
   const [search, setSearch] = useState('');
 
@@ -22,19 +22,20 @@ const TaskList = () => {
     return true;
   });
 
-  const toggleTaskCompletion = (id: string) => {
-    dispatch({ type: 'TOGGLE_TASK', payload: id });
-  };
-
-  const deleteTask = (id: string) => {
+  const handleDeleteTask = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this task?')) {
-      dispatch({ type: 'DELETE_TASK', payload: id });
+      await deleteTask(id);
     }
   };
 
-  const toggleReminder = (id: string, enabled: boolean) => {
-    dispatch({ type: 'SET_REMINDER', payload: { taskId: id, enabled } });
+  const handleToggleCompletion = async (id: string, completed: boolean) => {
+    await toggleTaskCompletion(id, !completed);
   };
+
+  const handleToggleReminder = async (id: string, enabled: boolean) => {
+    await toggleReminder(id, !enabled);
+  };
+
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -107,7 +108,7 @@ const TaskList = () => {
             >
               <div className="flex items-start gap-4">
                 <button
-                  onClick={() => toggleTaskCompletion(task.id)}
+                  onClick={() => handleToggleCompletion(task.id, task.completed)}
                   className={clsx(
                     'mt-1 flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors',
                     task.completed
@@ -173,7 +174,7 @@ const TaskList = () => {
 
                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
-                    onClick={() => toggleReminder(task.id, !task.reminderEnabled)}
+                    onClick={() => handleToggleReminder(task.id, !task.reminderEnabled)}
                     className={clsx(
                       'p-2 rounded-lg transition-colors',
                       task.reminderEnabled
@@ -190,7 +191,7 @@ const TaskList = () => {
                   </button>
                   
                   <button
-                    onClick={() => deleteTask(task.id)}
+                    onClick={() => handleDeleteTask(task.id)}
                     className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
                     title="Delete task"
                   >

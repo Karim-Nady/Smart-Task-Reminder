@@ -4,7 +4,7 @@ import TaskManager from './components/TaskManager';
 import TaskInsights from './components/TaskInsights';
 import TaskList from './components/TaskList';
 import { TaskProvider } from './contexts/TaskContext';
-import './App.css';
+import './styles/App.css';
 
 function App() {
   return (

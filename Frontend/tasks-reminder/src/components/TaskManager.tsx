@@ -1,10 +1,13 @@
+/* eslint-disable react-refresh/only-export-components */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState } from 'react';
 import { PlusCircle, Calendar, Tag, Bell } from 'lucide-react';
 import { useTasks } from '../contexts/TaskContext';
 import { format } from 'date-fns';
 
 const TaskManager = () => {
-  const { dispatch } = useTasks();
+  const { createTask } = useTasks();
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',

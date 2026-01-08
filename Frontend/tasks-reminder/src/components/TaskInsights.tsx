@@ -1,14 +1,32 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { TrendingUp, AlertTriangle, CheckCircle, Clock, Calendar } from 'lucide-react';
 import { useTasks } from '../contexts/TaskContext';
+import taskService from '../services/taskService';
+import type { InsightsResponse } from '../services/taskService';
 import { format, isPast, isToday, isFuture, differenceInDays } from 'date-fns';
 
 const TaskInsights = () => {
-  const { state } = useTasks();
+ const { state } = useTasks();
+  const [backendInsights, setBackendInsights] = useState<InsightsResponse | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const calculateInsights = () => {
+  useEffect(() => {
+    const fetchInsights = async () => {
+      try {
+        const insights = await taskService.getInsights();
+        setBackendInsights(insights);
+      } catch (error) {
+        console.error('Failed to fetch insights:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInsights();
+  }, []);
+
+  const calculateLocalInsights = () => {
     const now = new Date();
-    
     const completedTasks = state.tasks.filter(t => t.completed);
     const activeTasks = state.tasks.filter(t => !t.completed);
     
@@ -24,13 +42,10 @@ const TaskInsights = () => {
       task.dueDate && isFuture(new Date(task.dueDate))
     );
     
-    const highPriorityTasks = activeTasks.filter(t => t.priority === 'high');
-    
     const completionRate = state.tasks.length > 0 
       ? Math.round((completedTasks.length / state.tasks.length) * 100)
       : 0;
-    
-    // Calculate average completion time for completed tasks
+
     let avgCompletionTime = 0;
     if (completedTasks.length > 0) {
       const totalDays = completedTasks.reduce((sum, task) => {
@@ -40,7 +55,6 @@ const TaskInsights = () => {
       }, 0);
       avgCompletionTime = Math.round(totalDays / completedTasks.length);
     }
-    
     return {
       total: state.tasks.length,
       completed: completedTasks.length,
@@ -48,39 +62,49 @@ const TaskInsights = () => {
       overdue: overdueTasks.length,
       today: todayTasks.length,
       upcoming: upcomingTasks.length,
-      highPriority: highPriorityTasks.length,
       completionRate,
       avgCompletionTime,
     };
   };
 
-  const insights = calculateInsights();
+  const localInsights = calculateLocalInsights();
+  const insights = backendInsights || {
+    total_tasks: localInsights.total,
+    completed_tasks: localInsights.completed,
+    pending_tasks: localInsights.active,
+    overdue_tasks: localInsights.overdue,
+    tasks_due_today: localInsights.today,
+    upcoming_tasks: localInsights.upcoming,
+    completion_rate: localInsights.completionRate,
+    avg_completion_time: localInsights.avgCompletionTime,
+  };
 
+  // Use backend data if available, otherwise use local calculations
   const statCards = [
     {
       title: 'Total Tasks',
-      value: insights.total,
+      value: insights.total_tasks,
       icon: TrendingUp,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
     },
     {
       title: 'Completed',
-      value: insights.completed,
+      value: insights.completed_tasks,
       icon: CheckCircle,
       color: 'text-green-600',
       bgColor: 'bg-green-50',
     },
     {
       title: 'Overdue',
-      value: insights.overdue,
+      value: insights.overdue_tasks,
       icon: AlertTriangle,
       color: 'text-red-600',
       bgColor: 'bg-red-50',
     },
     {
       title: 'Due Today',
-      value: insights.today,
+      value: insights.tasks_due_today,
       icon: Calendar,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50',
@@ -88,7 +112,7 @@ const TaskInsights = () => {
   ];
 
   const priorityDistribution = [
-    { label: 'High', value: insights.highPriority, color: 'bg-red-500' },
+    { label: 'High', value: state.tasks.filter(t => t.priority === 'high').length, color: 'bg-red-500' },
     { label: 'Medium', value: state.tasks.filter(t => t.priority === 'medium').length, color: 'bg-yellow-500' },
     { label: 'Low', value: state.tasks.filter(t => t.priority === 'low').length, color: 'bg-green-500' },
   ];
@@ -121,13 +145,13 @@ const TaskInsights = () => {
             <div className="flex items-center justify-between mb-2">
               <span className="font-medium text-gray-900">Completion Rate</span>
               <span className="text-2xl font-bold text-primary-600">
-                {insights.completionRate}%
+                {insights.completion_rate}%
               </span>
             </div>
             <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-primary-600 rounded-full transition-all duration-500"
-                style={{ width: `${insights.completionRate}%` }}
+                style={{ width: `${insights.completion_rate}%` }}
               />
             </div>
           </div>
@@ -156,14 +180,14 @@ const TaskInsights = () => {
             </div>
           </div>
 
-          {insights.avgCompletionTime > 0 && (
+          {insights.avg_completion_time > 0 && (
             <div className="p-4 bg-primary-50 rounded-xl">
               <div className="flex items-center gap-3">
                 <Clock className="w-6 h-6 text-primary-600" />
                 <div>
                   <p className="font-medium text-primary-900">Average Completion</p>
                   <p className="text-sm text-primary-700">
-                    {insights.avgCompletionTime} days per task
+                    {insights.avg_completion_time} days per task
                   </p>
                 </div>
               </div>

@@ -1,29 +1,32 @@
 # crud.py
 from sqlalchemy.orm import Session
 from models import Task as TaskModel
-from schemas import TaskCreate, Task
+from schemas import TaskCreate, TaskUpdate
 from typing import Optional
+from datetime import datetime
 
-# Create a task
+
 def create_task(db: Session, task_data: TaskCreate) -> TaskModel:
-    db_task = TaskModel(**task_data.dict())
+    """Create a new task"""
+    db_task = TaskModel(**task_data.model_dump())
     db.add(db_task)
     db.commit()
-    db.refresh(db_task)  # get auto-generated ID
+    db.refresh(db_task)
     return db_task
 
-# Get all tasks
+
 def get_tasks(
     db: Session,
     status: Optional[str] = None,
     priority: Optional[int] = None,
-    due_before=None,
-    due_after=None,
-    limit: int = 10,
+    due_before: Optional[datetime] = None,
+    due_after: Optional[datetime] = None,
+    limit: int = 100,
     offset: int = 0,
     sort_by: str = "created_at",
     order: str = "desc",
 ):
+    """Get tasks with optional filtering and sorting"""
     query = db.query(TaskModel)
 
     # Filtering
@@ -51,23 +54,31 @@ def get_tasks(
 
     return query.all()
 
-# Get task by ID
-def get_task(db: Session, task_id: int):
+
+def get_task(db: Session, task_id: int) -> Optional[TaskModel]:
+    """Get a single task by ID"""
     return db.query(TaskModel).filter(TaskModel.id == task_id).first()
 
-# Update task
-def update_task(db: Session, task_id: int, task_data: TaskCreate):
+
+def update_task(db: Session, task_id: int, task_data: TaskUpdate) -> Optional[TaskModel]:
+    """Update a task with partial data"""
     task = db.query(TaskModel).filter(TaskModel.id == task_id).first()
     if not task:
         return None
-    for key, value in task_data.dict().items():
+    
+    # Only update fields that are provided
+    update_data = task_data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
         setattr(task, key, value)
+    
+    task.updated_at = datetime.now()
     db.commit()
     db.refresh(task)
     return task
 
-# Delete task
-def delete_task(db: Session, task_id: int):
+
+def delete_task(db: Session, task_id: int) -> bool:
+    """Delete a task"""
     task = db.query(TaskModel).filter(TaskModel.id == task_id).first()
     if not task:
         return False
