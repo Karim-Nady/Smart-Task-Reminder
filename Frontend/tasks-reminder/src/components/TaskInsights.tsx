@@ -4,9 +4,10 @@ import { useTasks } from '../contexts/TaskContext';
 import taskService from '../services/taskService';
 import type { InsightsResponse } from '../services/taskService';
 import { format, isPast, isToday, isFuture, differenceInDays } from 'date-fns';
+import NotificationDropdown from './NotificationDropdown';
 
 const TaskInsights = () => {
- const { state } = useTasks();
+  const { state } = useTasks();
   const [backendInsights, setBackendInsights] = useState<InsightsResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -122,7 +123,11 @@ const TaskInsights = () => {
   return (
     <div className="space-y-6">
       <div className="card">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Task Insights</h2>
+        {/* Header with Notification Bell */}
+          <NotificationDropdown />
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Task Insights</h2>
+        </div>
         
         <div className="grid grid-cols-2 gap-4 mb-8">
           {statCards.map((stat) => (

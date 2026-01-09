@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
 import { CheckCircle, Clock, AlertCircle, Trash2, Bell, BellOff, PlusCircle, Calendar, Tag, TrendingUp, AlertTriangle } from 'lucide-react';
+import NotificationDropdown from './components/NotificationDropdown';
 
 // API Configuration
 const API_BASE_URL = 'http://localhost:8000';
@@ -614,7 +615,10 @@ const TaskInsights = () => {
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Task Insights</h2>
+      <div className="flex flex-row justify-between">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Task Insights</h2>
+      <NotificationDropdown />
+      </div>
       
       <div className="grid grid-cols-2 gap-4 mb-8">
         {statCards.map((stat) => (

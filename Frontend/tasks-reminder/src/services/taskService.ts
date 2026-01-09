@@ -47,6 +47,14 @@ export interface InsightsResponse {
   avg_completion_time: number | null;
 }
 
+export interface NotificationResponse {
+    id: number;
+    task_id: number;
+    message: string;
+    created_at: string;
+    is_read: boolean;
+}
+
 class TaskService {
   private handleError(error: any): never {
     console.error('API Error:', {
@@ -163,6 +171,27 @@ class TaskService {
     } catch (error) {
       console.warn('Failed to fetch reminders:', error);
       return [];
+    }
+  }
+
+  async getNotifications(): Promise<NotificationResponse[]> {
+    try{
+      const res = await api.get('/notifications');
+      return res.data;
+    } catch(error) {
+      console.warn("failed to get the notifications due: ", error);
+      return [];
+    }
+  }
+
+  async markNotifications(id: number): Promise<boolean> {
+    try{
+      const res = await api.put(`/notifications/${id}/read`);
+      console.log(res);
+      return true;
+    } catch(error) {
+      console.warn("failed to mark the notifications as read due: ", error);
+      return false;
     }
   }
 

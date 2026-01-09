@@ -6,22 +6,24 @@ from sqlalchemy import func, and_
 from models import Task as TaskModel
 
 
-def upcoming_tasks(db: Session) -> List[TaskModel]:
+def upcoming_tasks(db: Session, user_id: int) -> List[TaskModel]:
     """Get tasks due in the future (not overdue)"""
     current_datetime = datetime.datetime.now()
     return db.query(TaskModel).filter(
         and_(
+            TaskModel.user_id == user_id,
             TaskModel.due_date >= current_datetime,
             TaskModel.status == "pending"
         )
     ).all()
 
 
-def overdue_tasks(db: Session) -> List[TaskModel]:
+def overdue_tasks(db: Session, user_id: int) -> List[TaskModel]:
     """Get tasks that are past due date and not completed"""
     current_datetime = datetime.datetime.now()
     return db.query(TaskModel).filter(
         and_(
+            TaskModel.user_id == user_id,
             TaskModel.due_date < current_datetime,
             TaskModel.status == "pending",
             TaskModel.completed == False
@@ -29,13 +31,14 @@ def overdue_tasks(db: Session) -> List[TaskModel]:
     ).all()
 
 
-def reminders(db: Session) -> List[TaskModel]:
+def reminders(db: Session, user_id: int) -> List[TaskModel]:
     """Get tasks with reminders enabled that are due within 24 hours"""
     current_datetime = datetime.datetime.now()
     deadline = current_datetime + datetime.timedelta(hours=24)
     
     return db.query(TaskModel).filter(
         and_(
+            TaskModel.user_id == user_id,
             TaskModel.reminder_enabled == True,
             TaskModel.due_date >= current_datetime,
             TaskModel.due_date <= deadline,
@@ -44,26 +47,29 @@ def reminders(db: Session) -> List[TaskModel]:
     ).all()
 
 
-def insights(db: Session) -> dict:
+def insights(db: Session, user_id: int) -> dict:
     """Calculate comprehensive task insights"""
     current_datetime = datetime.datetime.now()
     today_start = current_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
     today_end = today_start + datetime.timedelta(days=1)
     
     # Basic counts
-    all_tasks = db.query(TaskModel).all()
+    all_tasks = db.query(TaskModel).filter(TaskModel.user_id == user_id).all()
     total_tasks = len(all_tasks)
     
     completed_tasks = db.query(TaskModel).filter(
+        TaskModel.user_id == user_id,
         TaskModel.completed == True
     ).count()
     
     pending_tasks = db.query(TaskModel).filter(
+        TaskModel.user_id == user_id,
         TaskModel.status == "pending"
     ).count()
     
     overdue_count = db.query(TaskModel).filter(
         and_(
+            TaskModel.user_id == user_id,
             TaskModel.due_date < current_datetime,
             TaskModel.status == "pending",
             TaskModel.completed == False
@@ -72,6 +78,7 @@ def insights(db: Session) -> dict:
     
     tasks_due_today = db.query(TaskModel).filter(
         and_(
+            TaskModel.user_id == user_id,
             TaskModel.due_date >= today_start,
             TaskModel.due_date < today_end,
             TaskModel.completed == False
@@ -80,6 +87,7 @@ def insights(db: Session) -> dict:
     
     upcoming_count = db.query(TaskModel).filter(
         and_(
+            TaskModel.user_id == user_id,
             TaskModel.due_date >= current_datetime,
             TaskModel.status == "pending"
         )

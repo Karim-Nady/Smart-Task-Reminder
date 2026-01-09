@@ -1,5 +1,5 @@
 # schemas.py
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import Optional
 from datetime import datetime
 
@@ -48,3 +48,28 @@ class InsightsResponse(BaseModel):
     upcoming_tasks: int
     completion_rate: float
     avg_completion_time: Optional[float] = None
+
+
+class Notification(BaseModel):
+    id: int
+    task_id: int
+    message: str
+    created_at: datetime
+    is_read: bool
+
+    class Config:
+        from_attributes = True
+
+
+class UserCreate(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
