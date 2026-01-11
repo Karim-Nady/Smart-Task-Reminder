@@ -83,10 +83,10 @@ _Clean, modern interface with task insights_
 ![Create Task](docs/images/task.png)
 _Intuitive form with all task properties_
 
-#### Notification System
+#### Search and Filtering
 
 ![Notifications](docs/images/search_and_filtering.png)
-_Real-time reminders in dropdown_
+
 
 </div>
 
