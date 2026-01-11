@@ -13,10 +13,18 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    new_user = userAuth.create_user(db,user.username, user.email, user.password)
-    token = create_access_token({"sub": new_user.id})
+    new_user = userAuth.create_user(db, user.username, user.email, user.password)
+    token = create_access_token({"sub": str(new_user.id)})
 
-    return {"access_token": token}
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": new_user.id,
+            "email": new_user.email,
+            "username": new_user.username
+        }
+    }
 
 @router.post("/login", response_model=Token)
 def login(user: UserLogin, db: Session = Depends(get_db)):
@@ -24,6 +32,13 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     if not authenticated:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    token = create_access_token({"sub": authenticated.id})
-    return {"access_token": token}
-
+    token = create_access_token({"sub": str(authenticated.id)})
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": authenticated.id,
+            "email": authenticated.email,
+            "username": authenticated.username
+        }
+    }

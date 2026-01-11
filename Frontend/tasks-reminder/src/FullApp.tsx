@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
-import { CheckCircle, Clock, AlertCircle, Trash2, Bell, BellOff, PlusCircle, Calendar, Tag, TrendingUp, AlertTriangle } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, Trash2, Bell, BellOff, PlusCircle, Calendar, Tag, TrendingUp, AlertTriangle, X, LogOut, User } from 'lucide-react';
 import NotificationDropdown from './components/NotificationDropdown';
 
 // API Configuration
@@ -25,6 +25,12 @@ interface TaskState {
   error: string | null;
 }
 
+interface AuthState {
+  token: string | null;
+  user: { id: number; email: string; username: string } | null;
+  isAuthenticated: boolean;
+}
+
 type TaskAction =
   | { type: 'SET_TASKS'; payload: Task[] }
   | { type: 'ADD_TASK'; payload: Task }
@@ -32,6 +38,10 @@ type TaskAction =
   | { type: 'DELETE_TASK'; payload: number }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null };
+
+type AuthAction =
+  | { type: 'LOGIN_SUCCESS'; payload: { token: string; user: any } }
+  | { type: 'LOGOUT' };
 
 // Data transformation utilities
 const transformToFrontend = (backendTask: any): Task => ({
@@ -58,10 +68,41 @@ const transformToBackend = (frontendTask: Partial<Task>) => ({
   status: frontendTask.completed ? 'done' : 'pending',
 });
 
-// API Service
-const api = {
+// Auth API
+const authApi = {
+  async register(email: string, password: string, username: string) {
+    const res = await fetch(`${API_BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, username }),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.detail || 'Registration failed');
+    }
+    return await res.json();
+  },
+
+  async login(email: string, password: string) {
+    const res = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.detail || 'Login failed');
+    }
+    return await res.json();
+  },
+};
+
+// Task API Service with Auth
+const createApi = (token: string | null) => ({
   async fetchTasks(): Promise<Task[]> {
-    const res = await fetch(`${API_BASE_URL}/tasks?limit=1000`);
+    const res = await fetch(`${API_BASE_URL}/tasks?limit=1000`, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+    });
     if (!res.ok) throw new Error('Failed to fetch tasks');
     const data = await res.json();
     return data.map(transformToFrontend);
@@ -70,7 +111,10 @@ const api = {
   async createTask(task: Partial<Task>): Promise<Task> {
     const res = await fetch(`${API_BASE_URL}/tasks`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify(transformToBackend(task)),
     });
     if (!res.ok) throw new Error('Failed to create task');
@@ -81,7 +125,10 @@ const api = {
   async updateTask(id: number, task: Partial<Task>): Promise<Task> {
     const res = await fetch(`${API_BASE_URL}/tasks/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify(transformToBackend(task)),
     });
     if (!res.ok) throw new Error('Failed to update task');
@@ -92,10 +139,11 @@ const api = {
   async deleteTask(id: number): Promise<void> {
     const res = await fetch(`${API_BASE_URL}/tasks/${id}`, {
       method: 'DELETE',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
     });
     if (!res.ok) throw new Error('Failed to delete task');
   },
-};
+});
 
 // Toast notifications
 const Toast = ({ message, type = 'success' }: { message: string; type?: 'success' | 'error' }) => (
@@ -106,7 +154,32 @@ const Toast = ({ message, type = 'success' }: { message: string; type?: 'success
   </div>
 );
 
-// Context
+// Auth Context
+const AuthContext = createContext<{
+  authState: AuthState;
+  authDispatch: React.Dispatch<AuthAction>;
+} | undefined>(undefined);
+
+const authReducer = (state: AuthState, action: AuthAction): AuthState => {
+  switch (action.type) {
+    case 'LOGIN_SUCCESS':
+      return {
+        token: action.payload.token,
+        user: action.payload.user,
+        isAuthenticated: true,
+      };
+    case 'LOGOUT':
+      return {
+        token: null,
+        user: null,
+        isAuthenticated: false,
+      };
+    default:
+      return state;
+  }
+};
+
+// Task Context
 const TaskContext = createContext<{
   state: TaskState;
   dispatch: React.Dispatch<TaskAction>;
@@ -135,7 +208,38 @@ const taskReducer = (state: TaskState, action: TaskAction): TaskState => {
   }
 };
 
+const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const [authState, authDispatch] = useReducer(authReducer, {
+    token: localStorage.getItem('token'),
+    user: JSON.parse(localStorage.getItem('user') || 'null'),
+    isAuthenticated: !!localStorage.getItem('token'),
+  });
+
+  useEffect(() => {
+    if (authState.token) {
+      localStorage.setItem('token', authState.token);
+      localStorage.setItem('user', JSON.stringify(authState.user));
+    } else {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    }
+  }, [authState]);
+
+  return (
+    <AuthContext.Provider value={{ authState, authDispatch }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
+  return context;
+};
+
 const TaskProvider = ({ children }: { children: React.ReactNode }) => {
+  const { authState } = useAuth();
   const [state, dispatch] = useReducer(taskReducer, {
     tasks: [],
     loading: true,
@@ -143,8 +247,14 @@ const TaskProvider = ({ children }: { children: React.ReactNode }) => {
   });
 
   const refreshTasks = async () => {
+    if (!authState.isAuthenticated) {
+      dispatch({ type: 'SET_TASKS', payload: [] });
+      return;
+    }
+
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
+      const api = createApi(authState.token);
       const tasks = await api.fetchTasks();
       dispatch({ type: 'SET_TASKS', payload: tasks });
     } catch (err) {
@@ -154,7 +264,7 @@ const TaskProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     refreshTasks();
-  }, []);
+  }, [authState.isAuthenticated]);
 
   return (
     <TaskContext.Provider value={{ state, dispatch, refreshTasks }}>
@@ -169,8 +279,180 @@ const useTasks = () => {
   return context;
 };
 
+// Auth Modal Component
+const AuthModal = ({ onClose }: { onClose?: () => void }) => {
+  const { authDispatch } = useAuth();
+  const [isLogin, setIsLogin] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    username: '',
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      if (isLogin) {
+        const data = await authApi.login(formData.email, formData.password);
+        authDispatch({ 
+          type: 'LOGIN_SUCCESS', 
+          payload: { token: data.access_token, user: data.user } 
+        });
+        onClose?.();
+      } else {
+        await authApi.register(formData.email, formData.password, formData.username);
+        const data = await authApi.login(formData.email, formData.password);
+        authDispatch({ 
+          type: 'LOGIN_SUCCESS', 
+          payload: { token: data.access_token, user: data.user } 
+        });
+        onClose?.();
+      }
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 relative">
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        )}
+
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+            {isLogin ? 'Welcome Back' : 'Create Account'}
+          </h2>
+          <p className="text-gray-600">
+            {isLogin ? 'Sign in to access your tasks' : 'Sign up to get started'}
+          </p>
+        </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-800 text-sm">{error}</p>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {!isLogin && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Username
+              </label>
+              <input
+                type="text"
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required={!isLogin}
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Email
+            </label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Password
+            </label>
+            <input
+              type="password"
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Processing...' : isLogin ? 'Sign In' : 'Sign Up'}
+          </button>
+        </form>
+
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => {
+              setIsLogin(!isLogin);
+              setError('');
+            }}
+            className="text-blue-600 hover:text-blue-700 font-medium"
+          >
+            {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Header Component with User Info
+const AppHeader = () => {
+  const { authState, authDispatch } = useAuth();
+
+  const handleLogout = () => {
+    authDispatch({ type: 'LOGOUT' });
+  };
+
+  return (
+    <header className="text-center mb-12">
+      <div className="flex items-center justify-between max-w-7xl mx-auto">
+        <div className="flex-1">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Smart Task Reminder</h1>
+          <p className="text-gray-600">Stay organized and never miss a deadline</p>
+        </div>
+        
+        {authState.isAuthenticated && (
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm border border-gray-200">
+              <User className="w-5 h-5 text-gray-600" />
+              <span className="font-medium text-gray-900">{authState.user?.username}</span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+            >
+              <LogOut className="w-5 h-5" />
+              Logout
+            </button>
+          </div>
+        )}
+      </div>
+    </header>
+  );
+};
+
 // TaskManager Component
 const TaskManager = () => {
+  const { authState } = useAuth();
   const { dispatch } = useTasks();
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [formData, setFormData] = useState({
@@ -194,6 +476,7 @@ const TaskManager = () => {
     }
 
     try {
+      const api = createApi(authState.token);
       const newTask = await api.createTask({
         ...formData,
         completed: false,
@@ -324,6 +607,7 @@ const TaskManager = () => {
 
 // TaskList Component
 const TaskList = () => {
+  const { authState } = useAuth();
   const { state, dispatch } = useTasks();
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
   const [search, setSearch] = useState('');
@@ -348,6 +632,7 @@ const TaskList = () => {
 
   const toggleTask = async (task: Task) => {
     try {
+      const api = createApi(authState.token);
       const updated = await api.updateTask(task.id, { ...task, completed: !task.completed });
       dispatch({ type: 'UPDATE_TASK', payload: updated });
       showToast(updated.completed ? 'Task completed!' : 'Task reopened');
@@ -359,6 +644,7 @@ const TaskList = () => {
   const deleteTask = async (id: number) => {
     if (!window.confirm('Are you sure you want to delete this task?')) return;
     try {
+      const api = createApi(authState.token);
       await api.deleteTask(id);
       dispatch({ type: 'DELETE_TASK', payload: id });
       showToast('Task deleted');
@@ -369,6 +655,7 @@ const TaskList = () => {
 
   const toggleReminder = async (task: Task) => {
     try {
+      const api = createApi(authState.token);
       const updated = await api.updateTask(task.id, { ...task, reminderEnabled: !task.reminderEnabled });
       dispatch({ type: 'UPDATE_TASK', payload: updated });
       showToast(updated.reminderEnabled ? 'Reminder enabled' : 'Reminder disabled');
@@ -411,6 +698,7 @@ const TaskList = () => {
       </div>
     );
   }
+  // console.log(state);
 
   if (state.error) {
     return (
@@ -617,7 +905,7 @@ const TaskInsights = () => {
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
       <div className="flex flex-row justify-between">
         <h2 className="text-2xl font-bold text-gray-900 mb-6">Task Insights</h2>
-      <NotificationDropdown />
+        <NotificationDropdown />
       </div>
       
       <div className="grid grid-cols-2 gap-4 mb-8">
@@ -676,26 +964,51 @@ const TaskInsights = () => {
 
 // Main App
 export default function App() {
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  return (
+    <AuthProvider>
+      <AuthWrapper showAuthModal={showAuthModal} setShowAuthModal={setShowAuthModal} />
+    </AuthProvider>
+  );
+}
+
+const AuthWrapper = ({ showAuthModal, setShowAuthModal }: { showAuthModal: boolean; setShowAuthModal: (show: boolean) => void }) => {
+  const { authState } = useAuth();
+
+  useEffect(() => {
+    if (!authState.isAuthenticated) {
+      setShowAuthModal(true);
+    } else {
+      setShowAuthModal(false);
+    }
+  }, [authState.isAuthenticated]);
+
   return (
     <TaskProvider>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-8 px-4">
         <div className="max-w-7xl mx-auto">
-          <header className="text-center mb-12">
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Smart Task Reminder</h1>
-            <p className="text-gray-600">Stay organized and never miss a deadline</p>
-          </header>
+          <AppHeader />
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              <TaskManager />
-              <TaskList />
+          {authState.isAuthenticated ? (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-6">
+                <TaskManager />
+                <TaskList />
+              </div>
+              <div>
+                <TaskInsights />
+              </div>
             </div>
-            <div>
-              <TaskInsights />
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-gray-600 text-lg">Please sign in to access your tasks</p>
             </div>
-          </div>
+          )}
         </div>
       </div>
+
+      {showAuthModal && <AuthModal onClose={() => {}} />}
     </TaskProvider>
   );
-}
+};

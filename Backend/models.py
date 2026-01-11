@@ -17,13 +17,13 @@ class Task(Base):
     due_date = Column(DateTime, nullable=True)
     priority = Column(Integer, nullable=False, default=2)  # 1=low, 2=medium, 3=high
     status = Column(String, nullable=False, default="pending")  # "pending"/"cancelled"/"done"
-    category = Column(String, nullable=True, default="General")  # NEW FIELD
-    reminder_enabled = Column(Boolean, default=True)  # NEW FIELD
+    category = Column(String, nullable=True, default="General")
+    reminder_enabled = Column(Boolean, default=True)
     
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=True, onupdate=datetime.now)
 
-
+    user = relationship("User", back_populates="tasks")
 
 
 class Notification(Base):
@@ -40,8 +40,7 @@ class Notification(Base):
     is_read = Column(Boolean, default=False)
 
     task = relationship("Task")
-    user = relationship("User")
-
+    user = relationship("User", back_populates="notifications")
 
 
 class User(Base):
@@ -49,11 +48,11 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    username = Column(String, unique=True, nullable=False)
+    username = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.now)
+    # is_active = Column(Boolean, default=True)
+    # created_at = Column(DateTime, default=datetime.now)
 
-    tasks = relationship("Task", backref="user")
-    notifications = relationship("Notification", backref="user") 
+    tasks = relationship("Task", back_populates="user")
+    notifications = relationship("Notification", back_populates="user")

@@ -36,6 +36,15 @@ def reminders(db: Session, user_id: int) -> List[TaskModel]:
     current_datetime = datetime.datetime.now()
     deadline = current_datetime + datetime.timedelta(hours=24)
     
+    print(db.query(TaskModel).filter(
+        and_(
+            TaskModel.user_id == user_id,
+            TaskModel.reminder_enabled == True,
+            TaskModel.due_date >= current_datetime,
+            TaskModel.due_date <= deadline,
+            TaskModel.completed == False
+        )
+    ).all())
     return db.query(TaskModel).filter(
         and_(
             TaskModel.user_id == user_id,

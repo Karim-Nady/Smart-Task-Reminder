@@ -5,7 +5,7 @@ def get_user_by_email(db, email: str):
     return db.query(User).filter(User.email == email).first()
 
 
-def create_user(db, email: str, password: str, username: str):
+def create_user(db, username: str, email: str, password: str):
     user = User(
         username=username,
         email=email,

@@ -70,6 +70,16 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    username: str
+
+    class Config:
+        from_attributes = True
+
+# Update Token to use UserResponse
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    user: UserResponse

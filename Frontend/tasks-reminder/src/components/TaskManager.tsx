@@ -1,13 +1,14 @@
-/* eslint-disable react-refresh/only-export-components */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState } from 'react';
-import { PlusCircle, Calendar, Tag, Bell } from 'lucide-react';
+import { PlusCircle, Calendar, Tag } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import { useTasks } from '../contexts/TaskContext';
-import { format } from 'date-fns';
+import { taskApi } from '../utils/taskApi';
+import Toast from './Toast';
 
 const TaskManager = () => {
-  const { createTask } = useTasks();
-
+  const { token } = useAuth();
+  const { dispatch } = useTasks();
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -17,170 +18,143 @@ const TaskManager = () => {
     reminderEnabled: true,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.title.trim()) return;
-
-    const newTask = {
-      id: crypto.randomUUID(),
-      ...formData,
-      completed: false,
-      createdAt: new Date().toISOString(),
-    };
-
-    dispatch({ type: 'ADD_TASK', payload: newTask });
-    
-    // Reset form
-    setFormData({
-      title: '',
-      description: '',
-      dueDate: '',
-      priority: 'medium',
-      category: '',
-      reminderEnabled: true,
-    });
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    
-    if (type === 'checkbox') {
-      const checkbox = e.target as HTMLInputElement;
-      setFormData(prev => ({
-        ...prev,
-        [name]: checkbox.checked,
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value,
-      }));
+  const handleSubmit = async () => {
+    if (!formData.title.trim()) {
+      showToast('Please enter a task title', 'error');
+      return;
+    }
+
+    try {
+      const newTask = await taskApi.createTask(token!, {
+        ...formData,
+        completed: false,
+      });
+      dispatch({ type: 'ADD_TASK', payload: newTask });
+      showToast('Task created successfully!');
+      setFormData({
+        title: '',
+        description: '',
+        dueDate: '',
+        priority: 'medium',
+        category: '',
+        reminderEnabled: true,
+      });
+    } catch (err) {
+      showToast('Failed to create task', 'error');
     }
   };
 
   return (
-    <div className="card animate-slide-in">
-      <div className="flex items-center gap-3 mb-6">
-        <PlusCircle className="w-6 h-6 text-primary-600" />
-        <h2 className="text-2xl font-bold text-gray-900">Create New Task</h2>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Task Title *
-          </label>
-          <input
-            type="text"
-            name="title"
-            value={formData.title}
-            onChange={handleChange}
-            placeholder="What needs to be done?"
-            className="input-field"
-            required
-          />
+    <>
+      {toast && <Toast message={toast.message} type={toast.type} />}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <PlusCircle className="w-6 h-6 text-blue-600" />
+          <h2 className="text-2xl font-bold text-gray-900">Create New Task</h2>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Description
-          </label>
-          <textarea
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            placeholder="Add details about your task..."
-            className="input-field min-h-[100px] resize-none"
-            rows={3}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-              <Calendar className="w-4 h-4" />
-              Due Date
-            </label>
-            <input
-              type="datetime-local"
-              name="dueDate"
-              value={formData.dueDate}
-              onChange={handleChange}
-              className="input-field"
-            />
-          </div>
-
-          <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-              <Tag className="w-4 h-4" />
-              Priority
-            </label>
-            <select
-              name="priority"
-              value={formData.priority}
-              onChange={handleChange}
-              className="input-field"
-            >
-              <option value="low">Low Priority</option>
-              <option value="medium">Medium Priority</option>
-              <option value="high">High Priority</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Category
+              Task Title *
             </label>
             <input
               type="text"
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              placeholder="Work, Personal, Shopping..."
-              className="input-field"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              placeholder="What needs to be done?"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-            <div className="flex items-center gap-3">
-              <Bell className="w-5 h-5 text-gray-600" />
-              <div>
-                <p className="font-medium text-gray-900">Enable Reminder</p>
-                <p className="text-sm text-gray-600">Get notified before due date</p>
-              </div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                name="reminderEnabled"
-                checked={formData.reminderEnabled}
-                onChange={handleChange}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer 
-                peer-checked:after:translate-x-full peer-checked:after:border-white 
-                after:content-[''] after:absolute after:top-[2px] after:left-[2px] 
-                after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all 
-                peer-checked:bg-primary-600">
-              </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Description
             </label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Add details..."
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[100px]"
+              rows={3}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                <Calendar className="w-4 h-4" />
+                Due Date
+              </label>
+              <input
+                type="datetime-local"
+                value={formData.dueDate}
+                onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                <Tag className="w-4 h-4" />
+                Priority
+              </label>
+              <select
+                value={formData.priority}
+                onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="low">Low Priority</option>
+                <option value="medium">Medium Priority</option>
+                <option value="high">High Priority</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Category
+              </label>
+              <input
+                type="text"
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                placeholder="Work, Personal, Shopping..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div className="flex items-end">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.reminderEnabled}
+                  onChange={(e) => setFormData({ ...formData, reminderEnabled: e.target.checked })}
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium text-gray-700">Enable Reminder</span>
+              </label>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              onClick={handleSubmit}
+              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              <PlusCircle className="w-5 h-5" />
+              Add Task
+            </button>
           </div>
         </div>
-
-        <div className="flex justify-end pt-4">
-          <button
-            type="submit"
-            className="btn-primary flex items-center gap-2"
-          >
-            <PlusCircle className="w-5 h-5" />
-            Add Task
-          </button>
-        </div>
-      </form>
-    </div>
+      </div>
+    </>
   );
 };
 
