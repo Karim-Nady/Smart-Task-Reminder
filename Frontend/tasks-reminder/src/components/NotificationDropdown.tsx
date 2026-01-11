@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Bell, X, Check } from 'lucide-react';
 import taskService from '../services/taskService';
 import type { NotificationResponse } from '../services/taskService';
@@ -12,18 +12,32 @@ const NotificationDropdown = () => {
 
   const fetchNotifications = async () => {
     const data = await taskService.getNotifications();
-    setNotifications(data);
+    const filteredNotifications = data.filter(notification => notification.is_read===false);
+    setNotifications(filteredNotifications);
+    // console.log(data);
     setUnreadCount(data.filter(n => !n.is_read).length);
   };
 
-  useEffect(() => {
-    fetchNotifications();
-    
-    // Poll every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000);
-    
-    return () => clearInterval(interval);
-  }, []);
+ useEffect(() => {
+  let isMounted = true;
+
+  const load = async () => {
+    if (!isMounted) return;
+    await fetchNotifications();
+  };
+
+  load(); // allowed: async boundary
+
+  const interval = setInterval(() => {
+    load();
+  }, 30000);
+
+  return () => {
+    isMounted = false;
+    clearInterval(interval);
+  };
+}, []);
+
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -45,9 +59,7 @@ const NotificationDropdown = () => {
   const handleMarkAsRead = async (id: number) => {
     const success = await taskService.markNotifications(id);
     if (success) {
-      setNotifications(prev => 
-        prev.map(n => n.id === id ? { ...n, read: true } : n)
-      );
+      setNotifications(prev => prev.filter(n => n.id !== id));
       setUnreadCount(prev => Math.max(0, prev - 1));
     }
   };
@@ -77,6 +89,8 @@ const NotificationDropdown = () => {
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-gray-900">Notifications</h3>
               <button
+                type="button"
+                title="cancel"
                 onClick={() => setIsOpen(false)}
                 className="p-1 rounded hover:bg-gray-100 transition-colors"
               >

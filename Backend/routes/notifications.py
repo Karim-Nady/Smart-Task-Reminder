@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -58,3 +58,29 @@ def get_insights(
     current_user: User = Depends(get_current_user),
 ):
     return features.insights(db, current_user.id)
+
+@router.put("/{notification_id}", response_model=NotificationSchema)
+def mark_notification_read(
+    notification_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Get the notification
+    notification = db.query(Notification).filter(
+        Notification.id == notification_id
+    ).first()
+    
+    # Check if notification exists
+    if not notification:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    
+    # Check if notification belongs to current user
+    if notification.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this notification")
+    
+    # Mark as read
+    notification.is_read = True
+    db.commit()
+    db.refresh(notification)
+    
+    return notification

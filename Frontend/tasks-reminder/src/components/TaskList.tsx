@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { CheckCircle, Clock, AlertCircle, Trash2, Bell, BellOff } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { useTasks, Task } from '../contexts/TaskContext';
-import { taskApi } from '../utils/taskApi';
-import Toast from './Toast';
+import { taskApi } from '../services/api';
+import { useTasks } from '../hooks/useTasks';
+import { Toast } from './Toast';
+import type { Task } from '../types';
 
-const TaskList = () => {
-  const { token } = useAuth();
+export const TaskList: React.FC = () => {
   const { state, dispatch } = useTasks();
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
   const [search, setSearch] = useState('');
@@ -31,32 +30,47 @@ const TaskList = () => {
 
   const toggleTask = async (task: Task) => {
     try {
-      const updated = await taskApi.updateTask(token!, task.id, { ...task, completed: !task.completed });
+      const updated = await taskApi.updateTask(task.id, { ...task, completed: !task.completed });
       dispatch({ type: 'UPDATE_TASK', payload: updated });
       showToast(updated.completed ? 'Task completed!' : 'Task reopened');
     } catch (err) {
-      showToast('Failed to update task', 'error');
+      if(err instanceof Error){
+        showToast(err.message, 'error');
+      }
+      else{
+        showToast('Failed to update task', 'error');
+      }
     }
   };
 
   const deleteTask = async (id: number) => {
     if (!window.confirm('Are you sure you want to delete this task?')) return;
     try {
-      await taskApi.deleteTask(token!, id);
+      await taskApi.deleteTask(id);
       dispatch({ type: 'DELETE_TASK', payload: id });
       showToast('Task deleted');
     } catch (err) {
-      showToast('Failed to delete task', 'error');
+      if(err instanceof Error){
+        showToast(err.message, 'error');
+      }
+      else{
+        showToast('Failed to update task', 'error');
+      }
     }
   };
 
   const toggleReminder = async (task: Task) => {
     try {
-      const updated = await taskApi.updateTask(token!, task.id, { ...task, reminderEnabled: !task.reminderEnabled });
+      const updated = await taskApi.updateTask(task.id, { ...task, reminderEnabled: !task.reminderEnabled });
       dispatch({ type: 'UPDATE_TASK', payload: updated });
       showToast(updated.reminderEnabled ? 'Reminder enabled' : 'Reminder disabled');
     } catch (err) {
-      showToast('Failed to update reminder', 'error');
+      if(err instanceof Error){
+        showToast(err.message, 'error');
+      }
+      else{
+        showToast('Failed to update task', 'error');
+      }
     }
   };
 
@@ -242,5 +256,3 @@ const TaskList = () => {
     </>
   );
 };
-
-export default TaskList;

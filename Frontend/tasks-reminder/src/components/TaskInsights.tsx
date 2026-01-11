@@ -1,11 +1,9 @@
 import React from 'react';
-import { CheckCircle, Calendar, TrendingUp, AlertTriangle, LogOut } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { useTasks } from '../contexts/TaskContext';
+import { TrendingUp, CheckCircle, AlertTriangle, Calendar } from 'lucide-react';
+import { useTasks } from '../hooks/useTasks';
 import NotificationDropdown from './NotificationDropdown';
 
-const TaskInsights = () => {
-  const { logout } = useAuth();
+export const TaskInsights: React.FC = () => {
   const { state } = useTasks();
 
   const calculateInsights = () => {
@@ -56,15 +54,9 @@ const TaskInsights = () => {
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Task Insights</h2>
-        <button
-          onClick={logout}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
-        >
-          <LogOut className="w-4 h-4" />
-          Logout
-        </button>
+      <div className="flex flex-row justify-between">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Task Insights</h2>
+        <NotificationDropdown />
       </div>
       
       <div className="grid grid-cols-2 gap-4 mb-8">
@@ -116,13 +108,7 @@ const TaskInsights = () => {
             ))}
           </div>
         </div>
-
-        <div className="pt-4 border-t border-gray-200">
-          <NotificationDropdown />
-        </div>
       </div>
     </div>
   );
 };
-
-export default TaskInsights;

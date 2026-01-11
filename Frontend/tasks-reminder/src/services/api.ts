@@ -1,67 +1,108 @@
 import axios from 'axios';
+import type { Task } from '../types';
+import type { BackendTask } from '../types/mapped';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-const api = axios.create({
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+// Create axios instance
+export const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
   },
-  timeout: 10000,
-  withCredentials: false, // Set to false for CORS
 });
 
-// Add request interceptor
-api.interceptors.request.use(
+// Request interceptor - automatically add auth token
+axiosInstance.interceptors.request.use(
   (config) => {
-    // Add any auth tokens here if needed
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
-    // console.log('Making request:', {
-    //   url: config.url,
-    //   method: config.method,
-    //   data: config.data,
-    // });
-    
     return config;
   },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor - handle errors globally
+axiosInstance.interceptors.response.use(
+  (response) => response,
   (error) => {
-    console.error('Request error:', error);
+    if (error.response?.status === 401) {
+      // Token expired or invalid - logout user
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/';
+    }
     return Promise.reject(error);
   }
 );
 
-// Add response interceptor
-api.interceptors.response.use(
-  (response) => {
-    // console.log('Response received:', {
-    //   url: response.config.url,
-    //   status: response.status,
-    //   data: response.data,
-    // });
-    return response;
-  },
-  (error) => {
-    console.error('Response error:', {
-      message: error.message,
-      status: error.response?.status,
-      data: error.response?.data,
-      headers: error.response?.headers,
+// Data transformation utilities
+const transformToFrontend = (backendTask: BackendTask): Task => ({
+  id: backendTask.id,
+  title: backendTask.title,
+  description: backendTask.description || '',
+  dueDate: backendTask.due_date || '',
+  priority: ['', 'low', 'medium', 'high'][backendTask.priority] as 'low' | 'medium' | 'high',
+  category: backendTask.category || 'General',
+  completed: backendTask.completed,
+  reminderEnabled: backendTask.reminder_enabled,
+  status: backendTask.status,
+  createdAt: backendTask.created_at,
+});
+
+const transformToBackend = (frontendTask: Partial<Task>) => ({
+  title: frontendTask.title,
+  description: frontendTask.description || '',
+  due_date: frontendTask.dueDate || null,
+  priority: { low: 1, medium: 2, high: 3 }[frontendTask.priority || 'medium'],
+  category: frontendTask.category || 'General',
+  completed: frontendTask.completed ?? false,
+  reminder_enabled: frontendTask.reminderEnabled ?? true,
+  status: frontendTask.completed ? 'done' : 'pending',
+});
+
+// Auth API
+export const authApi = {
+  async register(email: string, password: string, username: string) {
+    const { data } = await axiosInstance.post('/auth/register', {
+      email,
+      password,
+      username,
     });
-    
-    if (error.code === 'ECONNABORTED') {
-      console.error('Request timeout');
-    }
-    
-    if (error.response?.status === 422) {
-      console.error('Validation error details:', error.response.data);
-    }
-    
-    return Promise.reject(error);
-  }
-);
+    return data;
+  },
 
-export default api;
+  async login(email: string, password: string) {
+    const { data } = await axiosInstance.post('/auth/login', {
+      email,
+      password,
+    });
+    return data;
+  },
+};
+
+// Task API
+export const taskApi = {
+  async fetchTasks(): Promise<Task[]> {
+    const { data } = await axiosInstance.get('/tasks', {
+      params: { limit: 1000 },
+    });
+    return data.map(transformToFrontend);
+  },
+
+  async createTask(task: Partial<Task>): Promise<Task> {
+    const { data } = await axiosInstance.post('/tasks', transformToBackend(task));
+    return transformToFrontend(data);
+  },
+
+  async updateTask(id: number, task: Partial<Task>): Promise<Task> {
+    const { data } = await axiosInstance.put(`/tasks/${id}`, transformToBackend(task));
+    return transformToFrontend(data);
+  },
+
+  async deleteTask(id: number): Promise<void> {
+    await axiosInstance.delete(`/tasks/${id}`);
+  },
+};

@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // src/services/taskService.ts
-import api from './api';
+import {axiosInstance} from './api';
 
 export interface TaskCreateData {
   title: string;
@@ -82,7 +84,7 @@ class TaskService {
         }
       });
 
-      const response = await api.get(`/tasks?${params.toString()}`);
+      const response = await axiosInstance.get(`/tasks?${params.toString()}`);
       return response.data;
     } catch (error) {
       return this.handleError(error);
@@ -91,7 +93,7 @@ class TaskService {
 
   async getTask(id: number): Promise<TaskResponse> {
     try {
-      const response = await api.get(`/tasks/${id}`);
+      const response = await axiosInstance.get(`/tasks/${id}`);
       return response.data;
     } catch (error) {
       return this.handleError(error);
@@ -113,7 +115,7 @@ class TaskService {
       
       console.log('Creating task with data:', data);
       
-      const response = await api.post('/tasks', data);
+      const response = await axiosInstance.post('/tasks', data);
       return response.data;
     } catch (error) {
       return this.handleError(error);
@@ -129,7 +131,7 @@ class TaskService {
       
       console.log('Updating task with data:', data);
       
-      const response = await api.put(`/tasks/${id}`, data);
+      const response = await axiosInstance.put(`/tasks/${id}`, data);
       return response.data;
     } catch (error) {
       return this.handleError(error);
@@ -138,7 +140,7 @@ class TaskService {
 
   async deleteTask(id: number): Promise<void> {
     try {
-      await api.delete(`/tasks/${id}`);
+      await axiosInstance.delete(`/tasks/${id}`);
     } catch (error) {
       return this.handleError(error);
     }
@@ -146,7 +148,7 @@ class TaskService {
 
   async getUpcomingTasks(): Promise<TaskResponse[]> {
     try {
-      const response = await api.get('/tasks/upcoming-tasks');
+      const response = await axiosInstance.get('/tasks/upcoming-tasks');
       return response.data;
     } catch (error) {
       console.warn('Failed to fetch upcoming tasks:', error);
@@ -156,7 +158,7 @@ class TaskService {
 
   async getOverdueTasks(): Promise<TaskResponse[]> {
     try {
-      const response = await api.get('/tasks/overdue-tasks');
+      const response = await axiosInstance.get('/tasks/overdue-tasks');
       return response.data;
     } catch (error) {
       console.warn('Failed to fetch overdue tasks:', error);
@@ -166,7 +168,7 @@ class TaskService {
 
   async getReminders(): Promise<TaskResponse[]> {
     try {
-      const response = await api.get('/tasks/reminders');
+      const response = await axiosInstance.get('/tasks/reminders');
       return response.data;
     } catch (error) {
       console.warn('Failed to fetch reminders:', error);
@@ -176,7 +178,7 @@ class TaskService {
 
   async getNotifications(): Promise<NotificationResponse[]> {
     try{
-      const res = await api.get('/notifications');
+      const res = await axiosInstance.get('/notifications');
       return res.data;
     } catch(error) {
       console.warn("failed to get the notifications due: ", error);
@@ -186,9 +188,9 @@ class TaskService {
 
   async markNotifications(id: number): Promise<boolean> {
     try{
-      const res = await api.put(`/notifications/${id}/read`);
-      console.log(res);
-      return true;
+      const res = await axiosInstance.put(`/notifications/${id}`);
+      // console.log(res);
+      return res.status===200;
     } catch(error) {
       console.warn("failed to mark the notifications as read due: ", error);
       return false;
@@ -197,7 +199,7 @@ class TaskService {
 
   async getInsights(): Promise<InsightsResponse> {
     try {
-      const response = await api.get('/tasks/summary');
+      const response = await axiosInstance.get('/tasks/summary');
       return response.data;
     } catch (error) {
       console.warn('Failed to fetch insights:', error);

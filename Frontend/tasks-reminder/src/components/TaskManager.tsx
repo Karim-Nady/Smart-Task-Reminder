@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { PlusCircle, Calendar, Tag } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { useTasks } from '../contexts/TaskContext';
-import { taskApi } from '../utils/taskApi';
-import Toast from './Toast';
+import { taskApi } from '../services/api';
+import { useTasks } from '../hooks/useTasks';
+import { Toast } from './Toast';
 
-const TaskManager = () => {
-  const { token } = useAuth();
+export const TaskManager: React.FC = () => {
   const { dispatch } = useTasks();
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [formData, setFormData] = useState({
@@ -30,7 +28,7 @@ const TaskManager = () => {
     }
 
     try {
-      const newTask = await taskApi.createTask(token!, {
+      const newTask = await taskApi.createTask({
         ...formData,
         completed: false,
       });
@@ -45,14 +43,19 @@ const TaskManager = () => {
         reminderEnabled: true,
       });
     } catch (err) {
-      showToast('Failed to create task', 'error');
+      if(err instanceof Error){
+        showToast(err.message, 'error');
+      }
+      else{
+        showToast('Failed to update task', 'error');
+      }
     }
   };
 
   return (
     <>
       {toast && <Toast message={toast.message} type={toast.type} />}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
         <div className="flex items-center gap-3 mb-6">
           <PlusCircle className="w-6 h-6 text-blue-600" />
           <h2 className="text-2xl font-bold text-gray-900">Create New Task</h2>
@@ -93,6 +96,7 @@ const TaskManager = () => {
               </label>
               <input
                 type="datetime-local"
+                title="due date"
                 value={formData.dueDate}
                 onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -106,7 +110,8 @@ const TaskManager = () => {
               </label>
               <select
                 value={formData.priority}
-                onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
+                title="priority"
+                onChange={(e) => setFormData({ ...formData, priority: e.target.value as 'low'|'medium'|'high' })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="low">Low Priority</option>
@@ -145,6 +150,7 @@ const TaskManager = () => {
 
           <div className="flex justify-end">
             <button
+              type='submit'
               onClick={handleSubmit}
               className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
             >
@@ -157,5 +163,3 @@ const TaskManager = () => {
     </>
   );
 };
-
-export default TaskManager;
